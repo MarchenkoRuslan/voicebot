@@ -6,63 +6,63 @@ from aiogram.filters import Command
 from config import settings
 from openai_helpers import OpenAIHandler
 
-# Настройка логирования
+# Logging setup
 logging.basicConfig(level=logging.INFO)
 
-# Создаем необходимые директории
+# Create necessary directories
 os.makedirs("voice_messages", exist_ok=True)
 os.makedirs("audio_responses", exist_ok=True)
 
-# Инициализация бота и диспетчера
+# Initialize bot and dispatcher
 bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
 dp = Dispatcher()
 
-# Инициализация OpenAI handler
+# Initialize OpenAI handler
 openai_handler = OpenAIHandler()
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     await message.answer(
-        "Привет! Я голосовой AI-бот. Отправь мне голосовое сообщение, "
-        "и я отвечу тебе голосом!"
+        "Hi! I'm a voice AI bot. Send me a voice message, "
+        "and I'll respond with voice!"
     )
 
 @dp.message(lambda message: message.voice)
 async def handle_voice(message: types.Message):
     try:
-        # Отправляем сообщение о начале обработки
-        processing_msg = await message.answer("Обрабатываю ваше сообщение...")
+        # Send processing message
+        processing_msg = await message.answer("Processing your message...")
 
-        # Скачивание голосового сообщения
+        # Download voice message
         voice = await bot.get_file(message.voice.file_id)
         voice_path = f"voice_messages/{message.voice.file_id}.ogg"
         await bot.download_file(voice.file_path, voice_path)
         
-        # Преобразование голоса в текст
+        # Convert voice to text
         user_text = await openai_handler.transcribe_audio(voice_path)
-        await message.answer(f"Ваш запрос: {user_text}")
+        await message.answer(f"Your request: {user_text}")
         
-        # Получение ответа от Assistant API
+        # Get response from Assistant API
         assistant_response = await openai_handler.get_assistant_response(user_text)
-        await message.answer(f"Ответ: {assistant_response}")
+        await message.answer(f"Response: {assistant_response}")
         
-        # Преобразование ответа в голос
+        # Convert response to voice
         response_audio_path = f"audio_responses/{message.voice.file_id}_response.mp3"
         await openai_handler.text_to_speech(assistant_response, response_audio_path)
         
-        # Отправка голосового ответа
+        # Send voice response
         await message.answer_voice(voice=types.FSInputFile(response_audio_path))
         
-        # Удаление временных файлов
+        # Remove temporary files
         os.remove(voice_path)
         os.remove(response_audio_path)
         
-        # Удаляем сообщение о обработке
+        # Delete processing message
         await processing_msg.delete()
         
     except Exception as e:
-        logging.error(f"Ошибка при обработке голосового сообщения: {e}")
-        await message.answer("Произошла ошибка при обработке голосового сообщения.")
+        logging.error(f"Error processing voice message: {e}")
+        await message.answer("An error occurred while processing your voice message.")
 
 async def main():
     await dp.start_polling(bot)
