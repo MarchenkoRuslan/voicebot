@@ -3,11 +3,11 @@ from openai import AsyncOpenAI
 from config import settings
 
 class OpenAIHandler:
+
     def __init__(self):
         self.client = AsyncOpenAI(
             api_key=settings.OPENAI_API_KEY,
         )
-        self.assistant = None
         self.thread = None
     
     async def transcribe_audio(self, audio_path: str) -> str:
@@ -22,13 +22,6 @@ class OpenAIHandler:
 
     async def get_assistant_response(self, user_message: str) -> str:
         """Get response from Assistant API"""
-        if not self.assistant:
-            self.assistant = await self.client.beta.assistants.create(
-                name="Voice Assistant",
-                instructions="You are a voice assistant. Respond concisely and informatively.",
-                model="gpt-4-turbo-preview"
-            )
-        
         if not self.thread:
             self.thread = await self.client.beta.threads.create()
 
@@ -39,20 +32,11 @@ class OpenAIHandler:
             content=user_message
         )
 
-        # Start execution
-        run = await self.client.beta.threads.runs.create(
+        # Create and wait for run completion using create_and_poll
+        run = await self.client.beta.threads.runs.create_and_poll(
             thread_id=self.thread.id,
-            assistant_id=self.assistant.id
+            assistant_id=settings.ASSISTANT_ID
         )
-
-        # Wait for completion
-        while True:
-            run = await self.client.beta.threads.runs.retrieve(
-                thread_id=self.thread.id,
-                run_id=run.id
-            )
-            if run.status == 'completed':
-                break
 
         # Get response
         messages = await self.client.beta.threads.messages.list(
