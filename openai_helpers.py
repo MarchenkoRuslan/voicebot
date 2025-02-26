@@ -4,7 +4,9 @@ from config import settings
 
 class OpenAIHandler:
     def __init__(self):
-        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        self.client = AsyncOpenAI(
+            api_key=settings.OPENAI_API_KEY,
+        )
         self.assistant = None
         self.thread = None
     
