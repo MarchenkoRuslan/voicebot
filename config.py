@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     @property
     def get_database_url(self) -> str:
         if self.DATABASE_URL:
-            return self.DATABASE_URL
+            return self.DATABASE_URL.replace('postgresql://', 'postgresql+asyncpg://')
         elif all([self.PGUSER, self.PGPASSWORD, self.PGHOST, self.PGPORT, self.PGDATABASE]):
             return f"postgresql+asyncpg://{self.PGUSER}:{self.PGPASSWORD}@{self.PGHOST}:{self.PGPORT}/{self.PGDATABASE}"
         return "postgresql+asyncpg://postgres:postgres@localhost:5432/voicebot"  # дефолтное значение
