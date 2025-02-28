@@ -5,6 +5,8 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from config import settings
 from openai_helpers import OpenAIHandler
+from database import engine
+from sqlalchemy import text
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -14,7 +16,7 @@ os.makedirs("voice_messages", exist_ok=True)
 os.makedirs("audio_responses", exist_ok=True)
 
 # Initialize bot and dispatcher
-bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+bot = Bot(token=settings.bot_token)
 dp = Dispatcher()
 
 # Initialize OpenAI handler
@@ -61,10 +63,46 @@ async def handle_voice(message: types.Message):
         await processing_msg.delete()
         
     except Exception as e:
+        if "insufficient_quota" in str(e):
+            await message.answer(
+                "Sorry, the bot has reached its API limit. Please try again later or contact the administrator."
+            )
+        else:
+            await message.answer("An error occurred while processing your voice message.")
         logging.error(f"Error processing voice message: {e}")
-        await message.answer("An error occurred while processing your voice message.")
+
+@dp.message(lambda message: message.text and not message.text.startswith('/'))
+async def handle_text(message: types.Message):
+    try:
+        # Send processing message
+        processing_msg = await message.answer("Processing your message...")
+
+        # Get response from Assistant API
+        response = await openai_handler.get_assistant_response(
+            message.text,
+            message.from_user.id
+        )
+        await message.answer(response)
+
+        # Delete processing message
+        await processing_msg.delete()
+
+    except Exception as e:
+        logging.error(f"Error processing text message: {e}")
+        await message.answer("An error occurred while processing your message.")
+
+async def test_db():
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+            print("Database connection successful!")
+    except Exception as e:
+        print(f"Database connection failed: {e}")
 
 async def main():
+    # Сначала проверяем подключение к БД
+    await test_db()
+    # Затем запускаем бота
     await dp.start_polling(bot)
 
 if __name__ == "__main__":

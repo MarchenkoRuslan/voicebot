@@ -4,6 +4,7 @@ class Settings(BaseSettings):
     bot_token: str
     OPENAI_API_KEY: str
     ASSISTANT_ID: str
+    DATABASE_URL: str
 
     class Config:
         env_file = ".env"

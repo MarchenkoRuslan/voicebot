@@ -172,3 +172,8 @@ cython_debug/
 
 voice_messages/
 audio_responses/
+
+# Alembic
+migrations/versions/__pycache__/
+migrations/__pycache__/
+alembic.ini
