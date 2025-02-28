@@ -16,7 +16,7 @@ os.makedirs("voice_messages", exist_ok=True)
 os.makedirs("audio_responses", exist_ok=True)
 
 # Initialize bot and dispatcher
-bot = Bot(token=settings.bot_token)
+bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
 dp = Dispatcher()
 
 # Initialize OpenAI handler
