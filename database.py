@@ -3,7 +3,7 @@ from config import settings
 from typing import AsyncGenerator
 
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    settings.get_database_url,
     echo=True,
     pool_size=5,
     max_overflow=10
