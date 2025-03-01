@@ -98,14 +98,17 @@ class OpenAIHandler:
                 if not user or not user.assistant_thread_id:
                     thread = await self.client.beta.threads.create()
                     if not user:
-                        new_user = User(
-                            telegram_id=telegram_id,
-                            assistant_thread_id=thread.id
+                        # Создаем SQL запрос с явным указанием всех полей
+                        stmt = sa.text("""
+                            INSERT INTO users (telegram_id, assistant_thread_id, values, created_at, updated_at)
+                            VALUES (:telegram_id, :thread_id, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                            RETURNING *
+                        """)
+                        result = await session.execute(
+                            stmt,
+                            {"telegram_id": telegram_id, "thread_id": thread.id}
                         )
-                        session.add(new_user)
-                        await session.commit()
-                        await session.refresh(new_user)
-                        user = new_user
+                        user = result.mappings().one()
                     else:
                         user.assistant_thread_id = thread.id
                         await session.commit()
