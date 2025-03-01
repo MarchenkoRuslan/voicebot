@@ -6,7 +6,6 @@ Create Date: 2024-02-xx
 """
 from alembic import op
 import sqlalchemy as sa
-from datetime import datetime
 
 revision = 'initial'
 down_revision = None
@@ -24,9 +23,13 @@ def upgrade() -> None:
         sa.Column('telegram_id', sa.BigInteger(), unique=True),
         sa.Column('assistant_thread_id', sa.String()),
         sa.Column('values', sa.String(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=False, default=datetime.utcnow),
-        sa.Column('updated_at', sa.DateTime(), nullable=True, 
-                  default=datetime.utcnow, onupdate=datetime.utcnow)
+        sa.Column('created_at', sa.DateTime(), 
+                  server_default=sa.text('CURRENT_TIMESTAMP'), 
+                  nullable=False),
+        sa.Column('updated_at', sa.DateTime(),
+                  server_default=sa.text('CURRENT_TIMESTAMP'),
+                  server_onupdate=sa.text('CURRENT_TIMESTAMP'),
+                  nullable=True)
     )
 
 def downgrade() -> None:
