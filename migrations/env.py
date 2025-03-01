@@ -11,12 +11,15 @@ from models import Base
 
 config = context.config
 
+# Get DATABASE_URL and replace internal host with external one
 database_url = os.getenv('DATABASE_URL')
 if not database_url:
     raise ValueError("DATABASE_URL environment variable is required")
 
-# Убираем asyncpg для миграций
+# Replace internal host with external one and update port
+database_url = database_url.replace('postgres-fiyf.railway.internal:5432', 'nozomi.proxy.rlwy.net:47027')
 database_url = database_url.replace('postgresql+asyncpg://', 'postgresql://')
+
 config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
