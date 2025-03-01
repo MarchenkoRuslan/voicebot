@@ -94,16 +94,22 @@ class OpenAIHandler:
         """Get response using Assistant API"""
         try:
             async with async_session() as session:
-                # Выбираем все поля
+                # Явно указываем все колонки в select
                 result = await session.execute(
-                    select(User).where(User.telegram_id == telegram_id)
+                    select(
+                        User.id,
+                        User.telegram_id,
+                        User.assistant_thread_id,
+                        User.values,
+                        User.created_at,
+                        User.updated_at
+                    ).where(User.telegram_id == telegram_id)
                 )
                 user = result.scalar_one_or_none()
                 
                 if not user or not user.assistant_thread_id:
                     thread = await self.client.beta.threads.create()
                     if not user:
-                        # Создаем нового пользователя
                         stmt = insert(User).values({
                             'telegram_id': telegram_id,
                             'assistant_thread_id': thread.id,
@@ -111,7 +117,9 @@ class OpenAIHandler:
                             'updated_at': sa.text('CURRENT_TIMESTAMP'),
                             'values': None
                         })
-                        result = await session.execute(stmt)
+                        await session.execute(stmt)
+                        await session.commit()
+                        
                         # Получаем созданного пользователя
                         result = await session.execute(
                             select(User).where(User.telegram_id == telegram_id)
@@ -119,7 +127,7 @@ class OpenAIHandler:
                         user = result.scalar_one()
                     else:
                         user.assistant_thread_id = thread.id
-                    await session.commit()
+                        await session.commit()
                 thread_id = user.assistant_thread_id
 
             # Add message to thread
