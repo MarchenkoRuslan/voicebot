@@ -100,8 +100,7 @@ class OpenAIHandler:
                     if not user:
                         new_user = User(
                             telegram_id=telegram_id,
-                            assistant_thread_id=thread.id,
-                            values=None
+                            assistant_thread_id=thread.id
                         )
                         session.add(new_user)
                         await session.commit()
