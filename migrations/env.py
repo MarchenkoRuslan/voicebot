@@ -5,18 +5,19 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
 
-# Add path to project root directory
-current_path = os.path.dirname(os.path.abspath(__file__))
-root_path = os.path.dirname(current_path)
-sys.path.insert(0, root_path)
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from models import Base  # Now we can import after adding root path
+from models import Base
 
 config = context.config
 
-# Form URL from environment variables
-DB_URL = f"postgresql://{os.getenv('PGUSER')}:{os.getenv('PGPASSWORD')}@{os.getenv('PGHOST')}:{os.getenv('PGPORT')}/{os.getenv('PGDATABASE')}"
-config.set_main_option("sqlalchemy.url", DB_URL)
+database_url = os.getenv('DATABASE_URL')
+if not database_url:
+    raise ValueError("DATABASE_URL environment variable is required")
+
+# Убираем asyncpg для миграций
+database_url = database_url.replace('postgresql+asyncpg://', 'postgresql://')
+config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
