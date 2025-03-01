@@ -88,36 +88,32 @@ class OpenAIHandler:
             return True
 
     async def get_assistant_response(self, message: str, telegram_id: int) -> str:
-        """Получение ответа от ассистента и сохранение ценности"""
+        """Get response using Assistant API"""
         try:
             async with async_session() as session:
-                # Получаем или создаем пользователя
-                result = await session.execute(
-                    select(User).where(User.telegram_id == telegram_id)
-                )
+                # Получаем пользователя со всеми колонками
+                stmt = select(User).where(User.telegram_id == telegram_id)
+                result = await session.execute(stmt)
                 user = result.scalar_one_or_none()
                 
                 if not user or not user.assistant_thread_id:
                     thread = await self.client.beta.threads.create()
                     if not user:
-                        stmt = insert(User).values({
-                            'telegram_id': telegram_id,
-                            'assistant_thread_id': thread.id,
-                            'value': None,
-                            'created_at': sa.text('CURRENT_TIMESTAMP'),
-                            'updated_at': sa.text('CURRENT_TIMESTAMP')
-                        })
-                        await session.execute(stmt)
-                        await session.commit()
-                        
-                        result = await session.execute(
-                            select(User).where(User.telegram_id == telegram_id)
+                        # Создаем нового пользователя
+                        new_user = User(
+                            telegram_id=telegram_id,
+                            assistant_thread_id=thread.id,
+                            value=None
                         )
-                        user = result.scalar_one()
+                        session.add(new_user)
+                        await session.commit()
+                        await session.refresh(new_user)
+                        user = new_user
                     else:
                         user.assistant_thread_id = thread.id
                         await session.commit()
-                
+                        await session.refresh(user)
+
                 # Отправляем сообщение ассистенту
                 await self.client.beta.threads.messages.create(
                     thread_id=user.assistant_thread_id,
