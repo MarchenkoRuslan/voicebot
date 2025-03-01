@@ -1,3 +1,3 @@
 worker: python main.py 
-release: alembic upgrade head
+release: alembic stamp base && alembic upgrade head
 web: python main.py
