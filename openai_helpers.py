@@ -5,10 +5,11 @@ from openai import AsyncOpenAI
 from config import settings
 from database import async_session
 from models import User
-from sqlalchemy import select
+from sqlalchemy import select, insert
 import uuid
 import logging
 from datetime import datetime
+import sqlalchemy as sa
 
 class OpenAIHandler:
 
@@ -92,7 +93,6 @@ class OpenAIHandler:
     async def get_assistant_response(self, message: str, telegram_id: int) -> str:
         """Get response using Assistant API"""
         try:
-            # Create a new thread or get existing one
             async with async_session() as session:
                 user = await session.execute(
                     select(User).where(User.telegram_id == telegram_id)
@@ -102,14 +102,17 @@ class OpenAIHandler:
                 if not user or not user.assistant_thread_id:
                     thread = await self.client.beta.threads.create()
                     if not user:
-                        # Создаем пользователя без явного указания created_at
-                        user = User(
+                        # Добавляем все поля при создании
+                        stmt = sa.insert(User).values(
                             telegram_id=telegram_id,
-                            assistant_thread_id=thread.id
-                        )
+                            assistant_thread_id=thread.id,
+                            created_at=sa.func.now(),
+                            updated_at=sa.func.now()
+                        ).returning(User)
+                        result = await session.execute(stmt)
+                        user = result.scalar_one()
                     else:
                         user.assistant_thread_id = thread.id
-                    session.add(user)
                     await session.commit()
                 thread_id = user.assistant_thread_id
 
