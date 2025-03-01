@@ -12,7 +12,12 @@ from models import Base
 from config import settings
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.get_database_url.replace('+asyncpg', ''))
+
+# Используем DATABASE_URL напрямую из переменных окружения
+config.set_main_option(
+    "sqlalchemy.url",
+    settings.DATABASE_URL.replace('+asyncpg', '')  # Убираем asyncpg для миграций
+)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
