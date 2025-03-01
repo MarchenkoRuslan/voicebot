@@ -6,24 +6,27 @@ from config import settings
 from database import async_session
 from models import User
 from sqlalchemy import select
+import uuid
+import logging
 
 class OpenAIHandler:
 
     def __init__(self):
-        self.client = AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY,
-        )
-        self.thread = None
+        self.client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        self.assistant_id = os.getenv('ASSISTANT_ID')
     
-    async def transcribe_audio(self, audio_path: str) -> str:
-        """Convert audio to text using Whisper API"""
-        with open(audio_path, "rb") as audio_file:
-            transcript = await self.client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                language="en"
-            )
-        return transcript.text
+    async def transcribe_audio(self, file_path: str) -> str:
+        """Convert voice to text using Whisper API"""
+        try:
+            with open(file_path, 'rb') as audio_file:
+                transcript = await self.client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file
+                )
+            return transcript.text
+        except Exception as e:
+            logging.error(f"Error in transcribe_audio: {e}")
+            raise
 
     async def validate_value(self, value: str) -> bool:
         """Validate the identified value using Completions API"""
@@ -85,67 +88,65 @@ class OpenAIHandler:
             await session.commit()
             return True
 
-    async def get_assistant_response(self, user_message: str, telegram_id: int) -> str:
-        """Get response from Assistant API with value identification"""
-        if not self.thread:
-            self.thread = await self.client.beta.threads.create()
-
-        # Add user message to thread
-        await self.client.beta.threads.messages.create(
-            thread_id=self.thread.id,
-            role="user",
-            content=user_message
-        )
-
-        # Create and wait for run completion using create_and_poll
-        run = await self.client.beta.threads.runs.create_and_poll(
-            thread_id=self.thread.id,
-            assistant_id=settings.ASSISTANT_ID,
-            tools=[{
-                "type": "function",
-                "function": {
-                    "name": "save_value",
-                    "description": "Save an identified personal value to the database",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "type": "string",
-                                "description": "The identified personal value"
-                            }
-                        },
-                        "required": ["value"]
-                    }
-                }
-            }]
-        )
-
-        # Get response
-        messages = await self.client.beta.threads.messages.list(
-            thread_id=self.thread.id
-        )
-        
-        # Check if there was a function call
-        tool_calls = run.required_action.submit_tool_outputs if run.required_action else None
-        if tool_calls:
-            for tool_call in tool_calls.tool_calls:
-                if tool_call.function.name == "save_value":
-                    args = json.loads(tool_call.function.arguments)
-                    value = args["value"]
-                    if await self.save_user_value(telegram_id, value):
-                        return f"I've identified and saved your personal value: {value}"
+    async def get_assistant_response(self, message: str, telegram_id: int) -> str:
+        """Get response using Assistant API"""
+        try:
+            # Create a new thread or get existing one
+            async with async_session() as session:
+                user = await session.get(User, telegram_id)
+                if not user or not user.assistant_thread_id:
+                    thread = await self.client.beta.threads.create()
+                    if not user:
+                        user = User(telegram_id=telegram_id, assistant_thread_id=thread.id)
                     else:
-                        return "I couldn't validate the identified value. Could you please elaborate more on your values?"
+                        user.assistant_thread_id = thread.id
+                    session.add(user)
+                    await session.commit()
+                thread_id = user.assistant_thread_id
 
-        return messages.data[0].content[0].text.value
+            # Add message to thread
+            await self.client.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=message
+            )
 
-    async def text_to_speech(self, text: str, output_path: str) -> str:
-        """Convert text to speech"""
-        response = await self.client.audio.speech.create(
-            model="tts-1",
-            voice="alloy",
-            input=text
-        )
-        
-        response.stream_to_file(output_path)
-        return output_path 
+            # Run the assistant
+            run = await self.client.beta.threads.runs.create(
+                thread_id=thread_id,
+                assistant_id=self.assistant_id
+            )
+
+            # Wait for completion
+            while True:
+                run_status = await self.client.beta.threads.runs.retrieve(
+                    thread_id=thread_id,
+                    run_id=run.id
+                )
+                if run_status.status == 'completed':
+                    break
+                elif run_status.status == 'failed':
+                    raise Exception("Assistant run failed")
+
+            # Get the latest message
+            messages = await self.client.beta.threads.messages.list(thread_id=thread_id)
+            return messages.data[0].content[0].text.value
+
+        except Exception as e:
+            logging.error(f"Error in get_assistant_response: {e}")
+            raise
+
+    async def text_to_speech(self, text: str) -> str:
+        """Convert text to speech using TTS API"""
+        output_path = f"audio_responses/response_{uuid.uuid4()}.mp3"
+        try:
+            response = await self.client.audio.speech.create(
+                model="tts-1",
+                voice="alloy",
+                input=text
+            )
+            await response.astream_to_file(output_path)
+            return output_path
+        except Exception as e:
+            logging.error(f"Error in text_to_speech: {e}")
+            raise 
