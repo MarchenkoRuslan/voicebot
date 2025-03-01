@@ -31,45 +31,29 @@ async def cmd_start(message: types.Message):
 
 @dp.message(lambda message: message.voice)
 async def handle_voice(message: types.Message):
+    file_path = None
     try:
-        # Send processing message
-        processing_msg = await message.answer("Processing your message...")
-
-        # Download voice message
+        # Скачиваем голосовое сообщение
         voice = await bot.get_file(message.voice.file_id)
-        voice_path = f"voice_messages/{message.voice.file_id}.ogg"
-        await bot.download_file(voice.file_path, voice_path)
+        file_path = f"voice_messages/{voice.file_id}.ogg"
+        await bot.download_file(voice.file_path, file_path)
         
-        # Convert voice to text
-        user_text = await openai_handler.transcribe_audio(voice_path)
-        await message.answer(f"Your request: {user_text}")
+        await message.answer("Processing your message...")
         
-        # Get response from Assistant API
-        assistant_response = await openai_handler.get_assistant_response(user_text)
-        await message.answer(f"Response: {assistant_response}")
+        # Получаем текст из голосового сообщения и ответ от OpenAI
+        text = await openai_handler.transcribe_audio(file_path)
+        response = await openai_handler.get_assistant_response(text, message.from_user.id)
         
-        # Convert response to voice
-        response_audio_path = f"audio_responses/{message.voice.file_id}_response.mp3"
-        await openai_handler.text_to_speech(assistant_response, response_audio_path)
-        
-        # Send voice response
-        await message.answer_voice(voice=types.FSInputFile(response_audio_path))
-        
-        # Remove temporary files
-        os.remove(voice_path)
-        os.remove(response_audio_path)
-        
-        # Delete processing message
-        await processing_msg.delete()
+        await message.answer(response)
         
     except Exception as e:
-        if "insufficient_quota" in str(e):
-            await message.answer(
-                "Sorry, the bot has reached its API limit. Please try again later or contact the administrator."
-            )
-        else:
-            await message.answer("An error occurred while processing your voice message.")
         logging.error(f"Error processing voice message: {e}")
+        await message.answer("An error occurred while processing your voice message.")
+    finally:
+        # Удаляем временный файл
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+            logging.info(f"Temporary file {file_path} removed")
 
 @dp.message(lambda message: message.text and not message.text.startswith('/'))
 async def handle_text(message: types.Message):
