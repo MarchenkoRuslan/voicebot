@@ -1,12 +1,13 @@
 import asyncio
 import logging
 import os
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from config import settings
 from openai_helpers import OpenAIHandler
 from database import engine
 from sqlalchemy import text
+from aiogram.types import FSInputFile
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -29,9 +30,10 @@ async def cmd_start(message: types.Message):
         "and I'll respond with voice!"
     )
 
-@dp.message(lambda message: message.voice)
+@dp.message(F.voice)
 async def handle_voice(message: types.Message):
     file_path = None
+    audio_response_path = None
     try:
         # Скачиваем голосовое сообщение
         voice = await bot.get_file(message.voice.file_id)
@@ -40,20 +42,31 @@ async def handle_voice(message: types.Message):
         
         await message.answer("Processing your message...")
         
-        # Получаем текст из голосового сообщения и ответ от OpenAI
+        # Получаем текст из голосового сообщения
         text = await openai_handler.transcribe_audio(file_path)
+        await message.answer(f"I heard: {text}")
+        
+        # Получаем ответ от ассистента
+        await message.answer("Thinking about response...")
         response = await openai_handler.get_assistant_response(text, message.from_user.id)
         
+        # Преобразуем ответ в голос
+        await message.answer("Converting response to voice...")
+        audio_response_path = await openai_handler.text_to_speech(response)
+        
+        # Отправляем голосовой и текстовый ответ
         await message.answer(response)
+        await message.answer_voice(voice=FSInputFile(audio_response_path))
         
     except Exception as e:
         logging.error(f"Error processing voice message: {e}")
         await message.answer("An error occurred while processing your voice message.")
     finally:
-        # Удаляем временный файл
+        # Удаляем временные файлы
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
-            logging.info(f"Temporary file {file_path} removed")
+        if audio_response_path and os.path.exists(audio_response_path):
+            os.remove(audio_response_path)
 
 @dp.message(lambda message: message.text and not message.text.startswith('/'))
 async def handle_text(message: types.Message):
