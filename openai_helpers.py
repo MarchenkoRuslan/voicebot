@@ -91,7 +91,6 @@ class OpenAIHandler:
         """Get response using Assistant API"""
         try:
             async with async_session() as session:
-                # Получаем пользователя со всеми колонками
                 stmt = select(User).where(User.telegram_id == telegram_id)
                 result = await session.execute(stmt)
                 user = result.scalar_one_or_none()
@@ -99,11 +98,10 @@ class OpenAIHandler:
                 if not user or not user.assistant_thread_id:
                     thread = await self.client.beta.threads.create()
                     if not user:
-                        # Создаем нового пользователя
                         new_user = User(
                             telegram_id=telegram_id,
                             assistant_thread_id=thread.id,
-                            value=None
+                            values=None
                         )
                         session.add(new_user)
                         await session.commit()
@@ -148,7 +146,7 @@ class OpenAIHandler:
                 if "SAVE_VALUE:" in response:
                     value = response.split("SAVE_VALUE:")[1].strip()
                     if await self.validate_value(value):
-                        user.value = value
+                        user.values = value
                         await session.commit()
                         return f"Я определил вашу ключевую ценность: {value}"
                     else:
