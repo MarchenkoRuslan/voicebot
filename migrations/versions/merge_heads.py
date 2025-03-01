@@ -1,7 +1,7 @@
 """merge heads
 
-Revision ID: merge_heads
-Revises: # укажите здесь ID всех существующих миграций через запятую
+Revision ID: merge_heads_xxx
+Revises: ID1, ID2  # Здесь будут реальные ID из команды history
 Create Date: 2024-02-xx
 """
 from typing import Sequence, Union
@@ -9,11 +9,10 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic
-revision: str = 'merge_heads'
-# Укажите здесь ID всех существующих миграций в кортеже
-down_revision = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision = 'merge_heads_xxx'
+down_revision = ('ID1', 'ID2')  # Те же ID, что и выше
+branch_labels = None
+depends_on = None
 
 def upgrade() -> None:
     # Создаем таблицу users, если её нет
