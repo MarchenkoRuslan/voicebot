@@ -1,23 +1,15 @@
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).parent.parent))
-
-import asyncio
+import os
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
 from models import Base
-from config import settings
 
 config = context.config
 
-# Используем DATABASE_URL напрямую из переменных окружения
-config.set_main_option(
-    "sqlalchemy.url",
-    settings.DATABASE_URL.replace('+asyncpg', '')  # Убираем asyncpg для миграций
-)
+# Формируем URL из переменных окружения
+DB_URL = f"postgresql://{os.getenv('PGUSER')}:{os.getenv('PGPASSWORD')}@{os.getenv('PGHOST')}:{os.getenv('PGPORT')}/{os.getenv('PGDATABASE')}"
+config.set_main_option("sqlalchemy.url", DB_URL)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
