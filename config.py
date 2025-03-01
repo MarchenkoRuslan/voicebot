@@ -7,14 +7,14 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     ASSISTANT_ID: str
     
-    # Делаем переменные БД опциональными
+    # Make database variables optional
     PGUSER: Optional[str] = None
     PGPASSWORD: Optional[str] = None
     PGHOST: Optional[str] = None
     PGPORT: Optional[str] = None
     PGDATABASE: Optional[str] = None
     
-    # Для локальной разработки
+    # For local development
     DATABASE_URL: Optional[str] = None
 
     @property
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
             return self.DATABASE_URL.replace('postgresql://', 'postgresql+asyncpg://')
         elif all([self.PGUSER, self.PGPASSWORD, self.PGHOST, self.PGPORT, self.PGDATABASE]):
             return f"postgresql+asyncpg://{self.PGUSER}:{self.PGPASSWORD}@{self.PGHOST}:{self.PGPORT}/{self.PGDATABASE}"
-        return "postgresql+asyncpg://postgres:postgres@localhost:5432/voicebot"  # дефолтное значение
+        return "postgresql+asyncpg://postgres:postgres@localhost:5432/voicebot"  # default value
 
     class Config:
         env_file = ".env"

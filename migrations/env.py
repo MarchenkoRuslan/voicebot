@@ -1,13 +1,17 @@
 import os
+import sys
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
 from models import Base
 
+# Add path to project root directory
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 config = context.config
 
-# Формируем URL из переменных окружения
+# Form URL from environment variables
 DB_URL = f"postgresql://{os.getenv('PGUSER')}:{os.getenv('PGPASSWORD')}@{os.getenv('PGHOST')}:{os.getenv('PGPORT')}/{os.getenv('PGDATABASE')}"
 config.set_main_option("sqlalchemy.url", DB_URL)
 

@@ -35,26 +35,26 @@ async def handle_voice(message: types.Message):
     file_path = None
     audio_response_path = None
     try:
-        # Скачиваем голосовое сообщение
+        # Download voice message
         voice = await bot.get_file(message.voice.file_id)
         file_path = f"voice_messages/{voice.file_id}.ogg"
         await bot.download_file(voice.file_path, file_path)
         
         await message.answer("Processing your message...")
         
-        # Получаем текст из голосового сообщения
+        # Get text from voice message
         text = await openai_handler.transcribe_audio(file_path)
         await message.answer(f"I heard: {text}")
         
-        # Получаем ответ от ассистента
+        # Get response from assistant
         await message.answer("Thinking about response...")
         response = await openai_handler.get_assistant_response(text, message.from_user.id)
         
-        # Преобразуем ответ в голос
+        # Convert response to voice
         await message.answer("Converting response to voice...")
         audio_response_path = await openai_handler.text_to_speech(response)
         
-        # Отправляем голосовой и текстовый ответ
+        # Send voice and text response
         await message.answer(response)
         await message.answer_voice(voice=FSInputFile(audio_response_path))
         
@@ -62,7 +62,7 @@ async def handle_voice(message: types.Message):
         logging.error(f"Error processing voice message: {e}")
         await message.answer("An error occurred while processing your voice message.")
     finally:
-        # Удаляем временные файлы
+        # Remove temporary files
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
         if audio_response_path and os.path.exists(audio_response_path):
@@ -97,9 +97,9 @@ async def test_db():
         print(f"Database connection failed: {e}")
 
 async def main():
-    # Сначала проверяем подключение к БД
+    # First test database connection
     await test_db()
-    # Затем запускаем бота
+    # Then start the bot
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
