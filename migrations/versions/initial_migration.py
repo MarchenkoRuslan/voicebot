@@ -13,20 +13,18 @@ branch_labels = None
 depends_on = None
 
 def upgrade() -> None:
-    # Удаляем старую таблицу
-    op.drop_table('users')
+    # Удаляем существующую таблицу, если она есть
+    op.execute('DROP TABLE IF EXISTS users CASCADE')
     
-    # Создаем новую таблицу со всеми полями
+    # Создаем таблицу заново
     op.create_table(
         'users',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('telegram_id', sa.BigInteger(), nullable=True),
-        sa.Column('assistant_thread_id', sa.String(), nullable=True),
+        sa.Column('id', sa.Integer(), primary_key=True),
+        sa.Column('telegram_id', sa.BigInteger(), unique=True),
+        sa.Column('assistant_thread_id', sa.String()),
         sa.Column('values', sa.String(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('NOW()'), nullable=False),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('NOW()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('telegram_id')
+        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.Column('updated_at', sa.DateTime(), nullable=True, server_default=sa.text('CURRENT_TIMESTAMP'))
     )
 
 def downgrade() -> None:
