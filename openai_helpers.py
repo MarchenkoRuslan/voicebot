@@ -8,6 +8,7 @@ from models import User
 from sqlalchemy import select
 import uuid
 import logging
+from datetime import datetime
 
 class OpenAIHandler:
 
@@ -101,7 +102,12 @@ class OpenAIHandler:
                 if not user or not user.assistant_thread_id:
                     thread = await self.client.beta.threads.create()
                     if not user:
-                        user = User(telegram_id=telegram_id, assistant_thread_id=thread.id)
+                        # Создаем пользователя с created_at
+                        user = User(
+                            telegram_id=telegram_id,
+                            assistant_thread_id=thread.id,
+                            created_at=datetime.utcnow()
+                        )
                     else:
                         user.assistant_thread_id = thread.id
                     session.add(user)
