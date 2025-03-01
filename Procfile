@@ -1,3 +1,3 @@
 worker: python main.py 
-release: alembic history
+release: alembic upgrade head
 web: python main.py
