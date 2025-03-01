@@ -94,7 +94,6 @@ class OpenAIHandler:
         """Get response using Assistant API"""
         try:
             async with async_session() as session:
-                # Проверяем существующего пользователя
                 result = await session.execute(
                     select(User).where(User.telegram_id == telegram_id)
                 )
@@ -103,12 +102,15 @@ class OpenAIHandler:
                 if not user or not user.assistant_thread_id:
                     thread = await self.client.beta.threads.create()
                     if not user:
-                        # Создаем нового пользователя через insert
+                        # Явно указываем все поля, включая created_at
                         result = await session.execute(
-                            insert(User).values(
-                                telegram_id=telegram_id,
-                                assistant_thread_id=thread.id
-                            ).returning(User)
+                            insert(User).values({
+                                'telegram_id': telegram_id,
+                                'assistant_thread_id': thread.id,
+                                'created_at': sa.text('CURRENT_TIMESTAMP'),
+                                'updated_at': sa.text('CURRENT_TIMESTAMP'),
+                                'values': None
+                            }).returning(User)
                         )
                         user = result.scalar_one()
                     else:
