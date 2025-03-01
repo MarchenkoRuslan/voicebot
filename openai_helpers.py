@@ -102,11 +102,10 @@ class OpenAIHandler:
                 if not user or not user.assistant_thread_id:
                     thread = await self.client.beta.threads.create()
                     if not user:
-                        # Создаем пользователя с created_at
+                        # Создаем пользователя без явного указания created_at
                         user = User(
                             telegram_id=telegram_id,
-                            assistant_thread_id=thread.id,
-                            created_at=datetime.utcnow()
+                            assistant_thread_id=thread.id
                         )
                     else:
                         user.assistant_thread_id = thread.id
