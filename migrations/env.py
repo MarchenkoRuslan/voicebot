@@ -4,10 +4,13 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
-from models import Base
 
 # Add path to project root directory
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+current_path = os.path.dirname(os.path.abspath(__file__))
+root_path = os.path.dirname(current_path)
+sys.path.insert(0, root_path)
+
+from models import Base  # Now we can import after adding root path
 
 config = context.config
 
