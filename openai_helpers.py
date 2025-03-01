@@ -102,18 +102,16 @@ class OpenAIHandler:
                 if not user or not user.assistant_thread_id:
                     thread = await self.client.beta.threads.create()
                     if not user:
-                        # Добавляем все поля при создании
-                        stmt = sa.insert(User).values(
+                        # Создаем нового пользователя
+                        user = User(
                             telegram_id=telegram_id,
-                            assistant_thread_id=thread.id,
-                            created_at=sa.func.now(),
-                            updated_at=sa.func.now()
-                        ).returning(User)
-                        result = await session.execute(stmt)
-                        user = result.scalar_one()
+                            assistant_thread_id=thread.id
+                        )
+                        session.add(user)
                     else:
                         user.assistant_thread_id = thread.id
                     await session.commit()
+                    await session.refresh(user)  # Обновляем объект после коммита
                 thread_id = user.assistant_thread_id
 
             # Add message to thread
