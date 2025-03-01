@@ -92,6 +92,9 @@ class OpenAIHandler:
         """Get response using Assistant API"""
         try:
             async with async_session() as session:
+                # Добавим логирование для отладки
+                logging.info(f"Processing request for telegram_id: {telegram_id}")
+                
                 stmt = select(User).where(User.telegram_id == telegram_id)
                 result = await session.execute(stmt)
                 user = result.scalar_one_or_none()
@@ -99,18 +102,27 @@ class OpenAIHandler:
                 if not user or not user.assistant_thread_id:
                     thread = await self.client.beta.threads.create()
                     if not user:
+                        logging.info("Creating new user")
                         # Создаем SQL запрос с явным указанием всех полей
                         stmt = sa.text("""
                             INSERT INTO users (telegram_id, assistant_thread_id, values, created_at, updated_at)
                             VALUES (:telegram_id, :thread_id, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                             RETURNING *
                         """)
-                        result = await session.execute(
-                            stmt,
-                            {"telegram_id": telegram_id, "thread_id": thread.id}
-                        )
-                        user = result.mappings().one()
+                        try:
+                            result = await session.execute(
+                                stmt,
+                                {"telegram_id": telegram_id, "thread_id": thread.id}
+                            )
+                            await session.commit()  # Явный commit
+                            logging.info("New user created successfully")
+                            user = result.mappings().one()
+                        except Exception as e:
+                            logging.error(f"Error creating user: {e}")
+                            await session.rollback()
+                            raise
                     else:
+                        logging.info("Updating existing user")
                         user.assistant_thread_id = thread.id
                         await session.commit()
                         await session.refresh(user)
@@ -158,8 +170,20 @@ class OpenAIHandler:
                 if "SAVE_VALUE:" in response:
                     value = response.split("SAVE_VALUE:")[1].strip()
                     if await self.validate_value(value):
-                        user.values = value
+                        logging.info(f"Saving value: {value} for user {telegram_id}")
+                        # Обновляем значение через SQL для гарантии сохранения
+                        update_stmt = sa.text("""
+                            UPDATE users 
+                            SET values = :value, 
+                                updated_at = CURRENT_TIMESTAMP 
+                            WHERE telegram_id = :telegram_id
+                        """)
+                        await session.execute(
+                            update_stmt,
+                            {"value": value, "telegram_id": telegram_id}
+                        )
                         await session.commit()
+                        logging.info("Value saved successfully")
                         return f"Я определил вашу ключевую ценность: {value}"
                     else:
                         return "Извините, мне нужно больше информации, чтобы определить вашу ценность. Расскажите подробнее о себе."
