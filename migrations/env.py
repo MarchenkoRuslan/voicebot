@@ -47,7 +47,8 @@ def run_migrations_online() -> None:
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
-            target_metadata=target_metadata
+            target_metadata=target_metadata,
+            version_table='alembic_version_new'  # Используем новую таблицу версий
         )
         with context.begin_transaction():
             context.run_migrations()
