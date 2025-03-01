@@ -8,8 +8,9 @@ from models import User
 from sqlalchemy import select, insert
 import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 import sqlalchemy as sa
+import asyncio
 
 class OpenAIHandler:
 
@@ -127,16 +128,25 @@ class OpenAIHandler:
                     assistant_id=self.assistant_id
                 )
 
-                # Ждем завершения
-                while True:
+                # Ждем завершения с таймаутом
+                start_time = datetime.now()
+                timeout = timedelta(seconds=30)
+                
+                while (datetime.now() - start_time) < timeout:
                     run_status = await self.client.beta.threads.runs.retrieve(
                         thread_id=user.assistant_thread_id,
                         run_id=run.id
                     )
+                    
                     if run_status.status == 'completed':
                         break
-                    elif run_status.status == 'failed':
-                        raise Exception("Assistant run failed")
+                    elif run_status.status in ['failed', 'cancelled', 'expired']:
+                        raise Exception(f"Assistant run failed with status: {run_status.status}")
+                    
+                    # Ждем перед следующей проверкой
+                    await asyncio.sleep(1)
+                else:
+                    raise Exception("Assistant response timeout")
 
                 # Получаем ответ
                 messages = await self.client.beta.threads.messages.list(
