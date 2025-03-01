@@ -93,7 +93,11 @@ class OpenAIHandler:
         try:
             # Create a new thread or get existing one
             async with async_session() as session:
-                user = await session.get(User, telegram_id)
+                user = await session.execute(
+                    select(User).where(User.telegram_id == telegram_id)
+                )
+                user = user.scalar_one_or_none()
+                
                 if not user or not user.assistant_thread_id:
                     thread = await self.client.beta.threads.create()
                     if not user:
