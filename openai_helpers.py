@@ -31,42 +31,39 @@ class OpenAIHandler:
             raise
 
     async def validate_value(self, value: str) -> bool:
-        """Validate the identified value using Completions API"""
-        functions = [
-            {
-                "name": "validate_personal_value",
-                "description": "Validates if the provided text represents a genuine personal value",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "is_valid": {
-                            "type": "boolean",
-                            "description": "True if the text represents a genuine personal value, False otherwise"
-                        }
-                    },
-                    "required": ["is_valid"]
-                }
-            }
-        ]
-
-        response = await self.client.chat.completions.create(
-            model="gpt-4-turbo-preview",
-            messages=[
-                {
+        """Валидация значения через Completions API"""
+        try:
+            response = await self.client.chat.completions.create(
+                model="gpt-4-turbo-preview",
+                messages=[{
                     "role": "system",
-                    "content": "You are a validator of personal values. Analyze the provided text and determine if it represents a genuine personal value. Return false for empty, nonsensical, or inappropriate responses."
-                },
-                {
+                    "content": "Ты - валидатор личностных ценностей. Твоя задача - проверить, является ли предоставленное значение осмысленной личностной ценностью."
+                }, {
                     "role": "user",
-                    "content": f"Validate this personal value: {value}"
-                }
-            ],
-            functions=functions,
-            function_call={"name": "validate_personal_value"}
-        )
-
-        result = json.loads(response.choices[0].message.function_call.arguments)
-        return result["is_valid"]
+                    "content": f"Является ли '{value}' осмысленной личностной ценностью? Ответь только True или False."
+                }],
+                functions=[{
+                    "name": "validate_value",
+                    "description": "Validates if the given value is a meaningful personal value",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "is_valid": {
+                                "type": "boolean",
+                                "description": "True if the value is valid, False otherwise"
+                            }
+                        },
+                        "required": ["is_valid"]
+                    }
+                }],
+                function_call={"name": "validate_value"}
+            )
+            
+            result = response.choices[0].message.function_call.arguments
+            return "true" in result.lower()
+        except Exception as e:
+            logging.error(f"Error in validate_value: {e}")
+            return False
 
     async def save_user_value(self, telegram_id: int, value: str) -> bool:
         """Save validated user value to database"""
@@ -91,19 +88,12 @@ class OpenAIHandler:
             return True
 
     async def get_assistant_response(self, message: str, telegram_id: int) -> str:
-        """Get response using Assistant API"""
+        """Получение ответа от ассистента и сохранение ценности"""
         try:
             async with async_session() as session:
-                # Явно указываем все колонки в select
+                # Получаем или создаем пользователя
                 result = await session.execute(
-                    select(
-                        User.id,
-                        User.telegram_id,
-                        User.assistant_thread_id,
-                        User.values,
-                        User.created_at,
-                        User.updated_at
-                    ).where(User.telegram_id == telegram_id)
+                    select(User).where(User.telegram_id == telegram_id)
                 )
                 user = result.scalar_one_or_none()
                 
@@ -113,14 +103,13 @@ class OpenAIHandler:
                         stmt = insert(User).values({
                             'telegram_id': telegram_id,
                             'assistant_thread_id': thread.id,
+                            'value': None,
                             'created_at': sa.text('CURRENT_TIMESTAMP'),
-                            'updated_at': sa.text('CURRENT_TIMESTAMP'),
-                            'values': None
+                            'updated_at': sa.text('CURRENT_TIMESTAMP')
                         })
                         await session.execute(stmt)
                         await session.commit()
                         
-                        # Получаем созданного пользователя
                         result = await session.execute(
                             select(User).where(User.telegram_id == telegram_id)
                         )
@@ -128,35 +117,48 @@ class OpenAIHandler:
                     else:
                         user.assistant_thread_id = thread.id
                         await session.commit()
-                thread_id = user.assistant_thread_id
-
-            # Add message to thread
-            await self.client.beta.threads.messages.create(
-                thread_id=thread_id,
-                role="user",
-                content=message
-            )
-
-            # Run the assistant
-            run = await self.client.beta.threads.runs.create(
-                thread_id=thread_id,
-                assistant_id=self.assistant_id
-            )
-
-            # Wait for completion
-            while True:
-                run_status = await self.client.beta.threads.runs.retrieve(
-                    thread_id=thread_id,
-                    run_id=run.id
+                
+                # Отправляем сообщение ассистенту
+                await self.client.beta.threads.messages.create(
+                    thread_id=user.assistant_thread_id,
+                    role="user",
+                    content=message
                 )
-                if run_status.status == 'completed':
-                    break
-                elif run_status.status == 'failed':
-                    raise Exception("Assistant run failed")
 
-            # Get the latest message
-            messages = await self.client.beta.threads.messages.list(thread_id=thread_id)
-            return messages.data[0].content[0].text.value
+                # Запускаем ассистента
+                run = await self.client.beta.threads.runs.create(
+                    thread_id=user.assistant_thread_id,
+                    assistant_id=self.assistant_id
+                )
+
+                # Ждем завершения
+                while True:
+                    run_status = await self.client.beta.threads.runs.retrieve(
+                        thread_id=user.assistant_thread_id,
+                        run_id=run.id
+                    )
+                    if run_status.status == 'completed':
+                        break
+                    elif run_status.status == 'failed':
+                        raise Exception("Assistant run failed")
+
+                # Получаем ответ
+                messages = await self.client.beta.threads.messages.list(
+                    thread_id=user.assistant_thread_id
+                )
+                response = messages.data[0].content[0].text.value
+
+                # Если ассистент определил ценность, валидируем и сохраняем
+                if "SAVE_VALUE:" in response:
+                    value = response.split("SAVE_VALUE:")[1].strip()
+                    if await self.validate_value(value):
+                        user.value = value
+                        await session.commit()
+                        return f"Я определил вашу ключевую ценность: {value}"
+                    else:
+                        return "Извините, мне нужно больше информации, чтобы определить вашу ценность. Расскажите подробнее о себе."
+
+                return response
 
         except Exception as e:
             logging.error(f"Error in get_assistant_response: {e}")

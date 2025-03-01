@@ -10,6 +10,6 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     telegram_id = Column(BigInteger, unique=True)
     assistant_thread_id = Column(String)
-    values = Column(String, nullable=True)
+    value = Column(String, nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=True, server_default=func.now(), onupdate=func.now()) 

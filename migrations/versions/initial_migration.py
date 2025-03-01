@@ -22,7 +22,7 @@ def upgrade() -> None:
         sa.Column('id', sa.Integer(), primary_key=True),
         sa.Column('telegram_id', sa.BigInteger(), unique=True),
         sa.Column('assistant_thread_id', sa.String()),
-        sa.Column('values', sa.String(), nullable=True),
+        sa.Column('value', sa.String(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
         sa.Column('updated_at', sa.DateTime(), nullable=True, server_default=sa.text('CURRENT_TIMESTAMP'))
     )
