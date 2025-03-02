@@ -3,35 +3,28 @@ import sys
 from pathlib import Path
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
-from urllib.parse import urlparse
 
 # Add parent directory to path to find src package
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from src.core.models import Base
-from src.core.config import settings
 from logging.config import fileConfig
 from alembic import context
 
 config = context.config
 
-# Получаем URL из переменной окружения
-db_url = os.getenv('DATABASE_URL')
-if not db_url:
-    raise ValueError("DATABASE_URL is not set")
+# Получаем компоненты URL из переменных окружения
+pguser = os.getenv('PGUSER')
+pgpass = os.getenv('PGPASSWORD')
+pghost = os.getenv('PGHOST')
+pgport = os.getenv('PGPORT')
+pgdb = os.getenv('PGDATABASE')
 
-# Заменяем internal hostname на public
-parsed = urlparse(db_url)
-if 'railway.internal' in parsed.hostname:
-    # Используем PGHOST вместо internal hostname
-    pghost = os.getenv('PGHOST')
-    if pghost:
-        db_url = db_url.replace(parsed.hostname, pghost)
+if not all([pguser, pgpass, pghost, pgport, pgdb]):
+    raise ValueError("Database configuration is incomplete")
 
-# Заменяем драйвер
-if '+asyncpg' in db_url:
-    db_url = db_url.replace('+asyncpg', '')
-
+# Формируем URL
+db_url = f"postgresql://{pguser}:{pgpass}@{pghost}:{pgport}/{pgdb}"
 print(f"Using database URL: {db_url}")  # Для отладки
 
 # Устанавливаем URL для миграций
