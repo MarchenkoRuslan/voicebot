@@ -6,16 +6,16 @@ from pathlib import Path
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import FSInputFile
-from core.config import settings
-from services.openai_service import OpenAIService
-from core.database import async_session
-from services.user_service import UserService
+from src.core.config import settings
+from src.services.openai_service import OpenAIService
+from src.core.database import async_session
+from src.services.user_service import UserService
 from openai import AsyncOpenAI
 
-# Logging setup
+# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
-# Create necessary directories
+# Создаем необходимые директории
 os.makedirs("voice_messages", exist_ok=True)
 os.makedirs("audio_responses", exist_ok=True)
 
@@ -76,8 +76,10 @@ async def handle_voice(message: types.Message):
         # Remove temporary files
         if 'file_path' in locals() and os.path.exists(file_path):
             os.remove(file_path)
+            logging.info(f"Removed temporary voice file: {file_path}")
         if 'audio_response_path' in locals() and os.path.exists(audio_response_path):
             os.remove(audio_response_path)
+            logging.info(f"Removed temporary audio response file: {audio_response_path}")
 
 @dp.message(lambda message: message.text and not message.text.startswith('/'))
 async def handle_text(message: types.Message):
