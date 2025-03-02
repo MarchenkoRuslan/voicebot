@@ -3,14 +3,13 @@ import logging
 import os
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import FSInputFile
 from core.config import settings
-from src.services.openai_service import OpenAIService
+from services.openai_service import OpenAIService
 from core.database import async_session
-from src.services.user_service import UserService
+from services.user_service import UserService
 from openai import AsyncOpenAI
 
 # Logging setup

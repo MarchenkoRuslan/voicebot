@@ -1,2 +1,2 @@
 release: alembic upgrade head
-worker: python /app/src/main.py
+worker: python src/main.py
