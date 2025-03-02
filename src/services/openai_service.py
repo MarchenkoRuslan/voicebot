@@ -51,10 +51,23 @@ class OpenAIService:
                 )
                 response = messages.data[0].content[0].text.value
                 logging.info(f"Got response: {response}")
-                # Проверяем, была ли вызвана функция
-                was_function_called = bool(run_status.required_action and 
-                    run_status.required_action.tool_calls)
-                return response, was_function_called
+                return response, True
+                
+            elif run_status.status == 'requires_action':
+                # Получаем требуемое действие
+                tool_calls = run_status.required_action.tool_calls
+                logging.info(f"Required action: {tool_calls}")
+                
+                # Подтверждаем выполнение функции
+                await self.client.beta.threads.runs.submit_tool_outputs(
+                    thread_id=thread_id,
+                    run_id=run.id,
+                    tool_outputs=[{
+                        "tool_call_id": tool_calls[0].id,
+                        "output": "true"  # Подтверждаем, что функция выполнена
+                    }]
+                )
+                logging.info("Submitted tool outputs")
                 
             elif run_status.status in ['failed', 'cancelled', 'expired']:
                 error_msg = f"Run failed with status: {run_status.status}"
@@ -62,7 +75,7 @@ class OpenAIService:
                 raise Exception(error_msg)
             
             retry_count += 1
-            await asyncio.sleep(5)  # Проверяем каждые 5 секунд
+            await asyncio.sleep(5)
         
         error_msg = f"Timeout waiting for assistant response after {max_retries * 5} seconds"
         logging.error(error_msg)
