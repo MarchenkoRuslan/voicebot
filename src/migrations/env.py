@@ -3,6 +3,7 @@ import sys
 from logging.config import fileConfig
 from sqlalchemy import create_engine
 from sqlalchemy import pool
+from urllib.parse import urlparse, urlunparse
 
 # Add parent directory to path to find src package
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -22,28 +23,36 @@ for key, value in os.environ.items():
         else:
             print(f"{key}={value}")
 
-# Пробуем получить URL разными способами
+# Получаем DATABASE_URL
 database_url = os.getenv('DATABASE_URL')
 if not database_url:
-    # Пробуем собрать из компонентов
-    pguser = os.getenv('PGUSER')
-    pgpass = os.getenv('PGPASSWORD')
-    pghost = os.getenv('PGHOST')
-    pgport = os.getenv('PGPORT')
-    pgdb = os.getenv('PGDATABASE')
-    
-    if all([pguser, pgpass, pghost, pgport, pgdb]):
-        database_url = f"postgresql://{pguser}:{pgpass}@{pghost}:{pgport}/{pgdb}"
-    else:
-        print("Missing environment variables:")
-        print(f"PGUSER: {'✓' if pguser else '✗'}")
-        print(f"PGPASSWORD: {'✓' if pgpass else '✗'}")
-        print(f"PGHOST: {'✓' if pghost else '✗'}")
-        print(f"PGPORT: {'✓' if pgport else '✗'}")
-        print(f"PGDATABASE: {'✓' if pgdb else '✗'}")
-        raise ValueError("No database configuration available")
+    raise ValueError("DATABASE_URL is not set")
 
-print(f"Final database URL: {database_url.replace(os.getenv('PGPASSWORD', ''), '***') if database_url else 'None'}")
+print(f"Original URL: {database_url}")
+
+# Парсим URL
+parsed = urlparse(database_url)
+
+# Заменяем internal hostname на публичный хост
+if '.railway.internal' in parsed.hostname:
+    # Получаем публичный хост из PGHOST
+    pghost = os.getenv('PGHOST')
+    if not pghost:
+        raise ValueError("PGHOST is not set")
+        
+    # Создаем новый URL с публичным хостом
+    new_url = urlunparse((
+        'postgresql',  # scheme
+        f"{parsed.username}:{parsed.password}@{pghost}:{parsed.port}",  # netloc
+        parsed.path,  # path
+        parsed.params,  # params
+        parsed.query,  # query
+        parsed.fragment  # fragment
+    ))
+    
+    database_url = new_url
+
+print(f"Using URL: {database_url.replace(parsed.password, '***')}")
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
