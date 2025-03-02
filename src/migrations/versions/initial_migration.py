@@ -1,6 +1,6 @@
 """initial migration
 
-Revision ID: 1eb43ffee3f3
+Revision ID: 1a1c76b54e9a
 Revises: 
 Create Date: 2024-03-19 10:00:00.000000
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '1eb43ffee3f3'
+revision = '1a1c76b54e9a'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -21,10 +21,10 @@ def upgrade() -> None:
     op.create_table('users',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('telegram_id', sa.BigInteger(), nullable=False),
-        sa.Column('username', sa.String(), nullable=True),
-        sa.Column('first_name', sa.String(), nullable=True),
-        sa.Column('last_name', sa.String(), nullable=True),
         sa.Column('assistant_thread_id', sa.String(), nullable=True),
+        sa.Column('values', sa.JSON(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('telegram_id')
     )
