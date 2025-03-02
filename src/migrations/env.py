@@ -35,15 +35,10 @@ parsed = urlparse(database_url)
 
 # Заменяем internal hostname на публичный хост
 if '.railway.internal' in parsed.hostname:
-    # Получаем публичный хост из PGHOST
-    pghost = os.getenv('PGHOST')
-    if not pghost:
-        raise ValueError("PGHOST is not set")
-        
-    # Создаем новый URL с публичным хостом
+    # Используем публичный хост из Railway
     new_url = urlunparse((
         'postgresql',  # scheme
-        f"{parsed.username}:{parsed.password}@{pghost}:{parsed.port}",  # netloc
+        f"{parsed.username}:{parsed.password}@interchange.proxy.rlwy.net:{parsed.port}",  # netloc
         parsed.path,  # path
         parsed.params,  # params
         parsed.query,  # query
