@@ -1,15 +1,13 @@
 import os
 import sys
-from pathlib import Path
+from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
-from urllib.parse import urlparse
 
 # Add parent directory to path to find src package
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from src.core.models import Base
-from logging.config import fileConfig
 from alembic import context
 
 config = context.config
@@ -19,11 +17,15 @@ database_url = os.getenv('DATABASE_URL')
 if not database_url:
     raise ValueError("DATABASE_URL is not set")
 
-# Заменяем postgres:// на postgresql:// если нужно
+# Заменяем postgres:// на postgresql://
 if database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
 
-# Устанавливаем URL для alembic
+# Убираем +asyncpg если есть
+if '+asyncpg' in database_url:
+    database_url = database_url.replace('+asyncpg', '')
+
+# Устанавливаем URL
 config.set_main_option('sqlalchemy.url', database_url)
 
 if config.config_file_name is not None:
@@ -39,6 +41,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
+
     with context.begin_transaction():
         context.run_migrations()
 
@@ -54,6 +57,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata
         )
+
         with context.begin_transaction():
             context.run_migrations()
 
