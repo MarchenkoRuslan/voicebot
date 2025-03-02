@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from urllib.parse import urlparse
 
 # Add parent directory to path to find src package
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -13,11 +14,17 @@ from alembic import context
 
 config = context.config
 
-# Устанавливаем переменные окружения для alembic.ini
-for key in ['PGUSER', 'PGPASSWORD', 'PGHOST', 'PGPORT', 'PGDATABASE']:
-    if key not in os.environ:
-        raise ValueError(f"Environment variable {key} is not set")
-    config.set_section_option('alembic', key, os.environ[key])
+# Получаем DATABASE_URL
+database_url = os.getenv('DATABASE_URL')
+if not database_url:
+    raise ValueError("DATABASE_URL is not set")
+
+# Заменяем postgres:// на postgresql:// если нужно
+if database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+# Устанавливаем URL для alembic
+config.set_main_option('sqlalchemy.url', database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
