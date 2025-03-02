@@ -1,6 +1,5 @@
 import os
 import sys
-import psycopg2
 from logging.config import fileConfig
 from sqlalchemy import create_engine
 from sqlalchemy import pool
@@ -13,31 +12,38 @@ from alembic import context
 
 config = context.config
 
-# Получаем компоненты подключения
-pguser = os.getenv('PGUSER')
-pgpass = os.getenv('PGPASSWORD')
-pghost = os.getenv('PGHOST')
-pgport = os.getenv('PGPORT')
-pgdb = os.getenv('PGDATABASE')
+# Выводим все переменные окружения для отладки
+print("Environment variables:")
+for key, value in os.environ.items():
+    if any(x in key.lower() for x in ['db', 'sql', 'pg', 'database']):
+        # Скрываем пароль
+        if 'pass' in key.lower():
+            print(f"{key}=***")
+        else:
+            print(f"{key}={value}")
 
-if not all([pguser, pgpass, pghost, pgport, pgdb]):
-    raise ValueError("Database configuration is incomplete")
+# Пробуем получить URL разными способами
+database_url = os.getenv('DATABASE_URL')
+if not database_url:
+    # Пробуем собрать из компонентов
+    pguser = os.getenv('PGUSER')
+    pgpass = os.getenv('PGPASSWORD')
+    pghost = os.getenv('PGHOST')
+    pgport = os.getenv('PGPORT')
+    pgdb = os.getenv('PGDATABASE')
+    
+    if all([pguser, pgpass, pghost, pgport, pgdb]):
+        database_url = f"postgresql://{pguser}:{pgpass}@{pghost}:{pgport}/{pgdb}"
+    else:
+        print("Missing environment variables:")
+        print(f"PGUSER: {'✓' if pguser else '✗'}")
+        print(f"PGPASSWORD: {'✓' if pgpass else '✗'}")
+        print(f"PGHOST: {'✓' if pghost else '✗'}")
+        print(f"PGPORT: {'✓' if pgport else '✗'}")
+        print(f"PGDATABASE: {'✓' if pgdb else '✗'}")
+        raise ValueError("No database configuration available")
 
-# Формируем DSN для psycopg2
-dsn = f"dbname={pgdb} user={pguser} password={pgpass} host={pghost} port={pgport}"
-
-# Пробуем подключиться напрямую через psycopg2
-try:
-    conn = psycopg2.connect(dsn)
-    conn.close()
-    print("Test connection successful")
-except Exception as e:
-    print(f"Test connection failed: {e}")
-    raise
-
-# Формируем URL для SQLAlchemy
-database_url = f"postgresql://{pguser}:{pgpass}@{pghost}:{pgport}/{pgdb}"
-print(f"Using database URL: {database_url}")
+print(f"Final database URL: {database_url.replace(os.getenv('PGPASSWORD', ''), '***') if database_url else 'None'}")
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
