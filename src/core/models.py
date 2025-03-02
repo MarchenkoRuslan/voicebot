@@ -9,6 +9,9 @@ class User(Base):
 
     id = Column(Integer, primary_key=True)
     telegram_id = Column(BigInteger, unique=True, nullable=False)
+    username = Column(String, nullable=True)
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
     assistant_thread_id = Column(String, nullable=True)
     values = Column(JSON, nullable=True)  # Для хранения ценностей пользователя
     created_at = Column(DateTime, default=datetime.utcnow)
