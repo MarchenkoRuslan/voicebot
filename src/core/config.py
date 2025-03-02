@@ -1,13 +1,14 @@
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # Поддержка обоих вариантов подключения к БД
-    DATABASE_URL: str | None = None
-    PGUSER: str | None = None
-    PGPASSWORD: str | None = None
-    PGHOST: str | None = None
-    PGPORT: str | None = None
-    PGDATABASE: str | None = None
+    DATABASE_URL: Optional[str] = None
+    PGUSER: Optional[str] = None
+    PGPASSWORD: Optional[str] = None
+    PGHOST: Optional[str] = None
+    PGPORT: Optional[str] = None
+    PGDATABASE: Optional[str] = None
     
     OPENAI_API_KEY: str
     TELEGRAM_BOT_TOKEN: str
@@ -23,7 +24,10 @@ class Settings(BaseSettings):
             return base_url
         
         # Иначе собираем из компонентов
-        return f"postgresql+asyncpg://{self.PGUSER}:{self.PGPASSWORD}@{self.PGHOST}:{self.PGPORT}/{self.PGDATABASE}"
+        if all([self.PGUSER, self.PGPASSWORD, self.PGHOST, self.PGPORT, self.PGDATABASE]):
+            return f"postgresql+asyncpg://{self.PGUSER}:{self.PGPASSWORD}@{self.PGHOST}:{self.PGPORT}/{self.PGDATABASE}"
+        
+        raise ValueError("No database configuration provided")
 
     class Config:
         env_file = ".env"
