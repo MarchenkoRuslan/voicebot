@@ -13,22 +13,11 @@ from alembic import context
 
 config = context.config
 
-# Получаем компоненты URL из переменных окружения
-pguser = os.getenv('PGUSER')
-pgpass = os.getenv('PGPASSWORD')
-pghost = os.getenv('PGHOST')
-pgport = os.getenv('PGPORT')
-pgdb = os.getenv('PGDATABASE')
-
-if not all([pguser, pgpass, pghost, pgport, pgdb]):
-    raise ValueError("Database configuration is incomplete")
-
-# Формируем URL
-db_url = f"postgresql://{pguser}:{pgpass}@{pghost}:{pgport}/{pgdb}"
-print(f"Using database URL: {db_url}")  # Для отладки
-
-# Устанавливаем URL для миграций
-config.set_main_option('sqlalchemy.url', db_url)
+# Устанавливаем переменные окружения для alembic.ini
+for key in ['PGUSER', 'PGPASSWORD', 'PGHOST', 'PGPORT', 'PGDATABASE']:
+    if key not in os.environ:
+        raise ValueError(f"Environment variable {key} is not set")
+    config.set_section_option('alembic', key, os.environ[key])
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
