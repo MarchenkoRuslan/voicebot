@@ -72,6 +72,23 @@ class OpenAIService:
                     user = await self.user_service.create_user(telegram_id, thread.id)
                 else:
                     user = await self.user_service.update_user_thread(user, thread.id)
+            
+            # Получаем список активных runs
+            runs = await self.client.beta.threads.runs.list(
+                thread_id=user.assistant_thread_id
+            )
+            
+            # Отменяем все активные runs
+            for run in runs.data:
+                if run.status not in ['completed', 'failed', 'cancelled', 'expired']:
+                    try:
+                        await self.client.beta.threads.runs.cancel(
+                            thread_id=user.assistant_thread_id,
+                            run_id=run.id
+                        )
+                    except Exception as e:
+                        logging.warning(f"Failed to cancel run {run.id}: {e}")
+                    await asyncio.sleep(1)  # Даем время на отмену
 
             await self.client.beta.threads.messages.create(
                 thread_id=user.assistant_thread_id,
