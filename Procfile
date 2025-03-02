@@ -1,2 +1,2 @@
 release: alembic upgrade head
-worker: python src/main.py
+worker: PYTHONPATH=. python src/main.py
