@@ -33,8 +33,9 @@ class OpenAIService:
             thread_id=thread_id,
             assistant_id=self.assistant_id
         )
+        logging.info(f"Created run {run.id} for thread {thread_id}")
 
-        max_retries = 60  # Максимальное время ожидания - 5 минут
+        max_retries = 24  # Максимальное время ожидания - 2 минуты
         retry_count = 0
         
         while retry_count < max_retries:
@@ -42,24 +43,30 @@ class OpenAIService:
                 thread_id=thread_id,
                 run_id=run.id
             )
+            logging.info(f"Run status: {run_status.status}")
             
             if run_status.status == 'completed':
                 messages = await self.client.beta.threads.messages.list(
                     thread_id=thread_id
                 )
                 response = messages.data[0].content[0].text.value
+                logging.info(f"Got response: {response}")
                 # Проверяем, была ли вызвана функция
                 was_function_called = bool(run_status.required_action and 
                     run_status.required_action.tool_calls)
                 return response, was_function_called
                 
             elif run_status.status in ['failed', 'cancelled', 'expired']:
-                raise Exception(f"Run failed with status: {run_status.status}")
+                error_msg = f"Run failed with status: {run_status.status}"
+                logging.error(error_msg)
+                raise Exception(error_msg)
             
             retry_count += 1
-            await asyncio.sleep(5)  # Увеличиваем интервал до 5 секунд
+            await asyncio.sleep(5)  # Проверяем каждые 5 секунд
         
-        raise Exception("Timeout waiting for assistant response")
+        error_msg = f"Timeout waiting for assistant response after {max_retries * 5} seconds"
+        logging.error(error_msg)
+        raise Exception(error_msg)
 
     async def get_assistant_response(self, message: str, telegram_id: int) -> str:
         """Get response using Assistant API"""
