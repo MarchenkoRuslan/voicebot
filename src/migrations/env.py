@@ -3,7 +3,7 @@ import sys
 from logging.config import fileConfig
 from sqlalchemy import create_engine
 from sqlalchemy import pool
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse
 
 # Add parent directory to path to find src package
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -30,24 +30,16 @@ if not database_url:
 
 print(f"Original URL: {database_url}")
 
-# Парсим URL
+# Парсим URL для получения креденшелов
 parsed = urlparse(database_url)
+username = parsed.username
+password = parsed.password
+dbname = parsed.path.lstrip('/')
 
-# Заменяем internal hostname на публичный хост
-if '.railway.internal' in parsed.hostname:
-    # Используем публичный хост из Railway
-    new_url = urlunparse((
-        'postgresql',  # scheme
-        f"{parsed.username}:{parsed.password}@interchange.proxy.rlwy.net:{parsed.port}",  # netloc
-        parsed.path,  # path
-        parsed.params,  # params
-        parsed.query,  # query
-        parsed.fragment  # fragment
-    ))
-    
-    database_url = new_url
+# Создаем новый URL с правильным хостом и портом
+database_url = f"postgresql://{username}:{password}@interchange.proxy.rlwy.net:31830/{dbname}"
 
-print(f"Using URL: {database_url.replace(parsed.password, '***')}")
+print(f"Using URL: {database_url.replace(password, '***')}")
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -66,9 +58,18 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 def run_migrations_online() -> None:
-    connectable = create_engine(database_url)
+    # Добавляем параметры подключения
+    engine = create_engine(
+        database_url,
+        poolclass=pool.NullPool,
+        connect_args={
+            'connect_timeout': 60,  # Увеличиваем таймаут
+            'keepalives': 1,        # Включаем keepalive
+            'keepalives_idle': 30   # Проверка каждые 30 секунд
+        }
+    )
 
-    with connectable.connect() as connection:
+    with engine.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata
