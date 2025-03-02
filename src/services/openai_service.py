@@ -55,19 +55,23 @@ class OpenAIService:
                 
             elif run_status.status == 'requires_action':
                 # Получаем требуемое действие
-                tool_calls = run_status.required_action.tool_calls
-                logging.info(f"Required action: {tool_calls}")
+                required_actions = run_status.required_action.submit_tool_outputs.tool_calls
+                logging.info(f"Required actions: {required_actions}")
                 
-                # Подтверждаем выполнение функции
+                # Подтверждаем выполнение функции для каждого действия
+                tool_outputs = []
+                for action in required_actions:
+                    tool_outputs.append({
+                        "tool_call_id": action.id,
+                        "output": "true"
+                    })
+                
                 await self.client.beta.threads.runs.submit_tool_outputs(
                     thread_id=thread_id,
                     run_id=run.id,
-                    tool_outputs=[{
-                        "tool_call_id": tool_calls[0].id,
-                        "output": "true"  # Подтверждаем, что функция выполнена
-                    }]
+                    tool_outputs=tool_outputs
                 )
-                logging.info("Submitted tool outputs")
+                logging.info(f"Submitted tool outputs: {tool_outputs}")
                 
             elif run_status.status in ['failed', 'cancelled', 'expired']:
                 error_msg = f"Run failed with status: {run_status.status}"
