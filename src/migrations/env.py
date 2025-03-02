@@ -1,5 +1,6 @@
 import os
 import sys
+import psycopg2
 from logging.config import fileConfig
 from sqlalchemy import create_engine
 from sqlalchemy import pool
@@ -12,20 +13,31 @@ from alembic import context
 
 config = context.config
 
-# Получаем DATABASE_URL
-database_url = os.getenv('DATABASE_URL')
-if not database_url:
-    raise ValueError("DATABASE_URL is not set")
+# Получаем компоненты подключения
+pguser = os.getenv('PGUSER')
+pgpass = os.getenv('PGPASSWORD')
+pghost = os.getenv('PGHOST')
+pgport = os.getenv('PGPORT')
+pgdb = os.getenv('PGDATABASE')
 
-# Заменяем postgres:// на postgresql://
-if database_url.startswith('postgres://'):
-    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+if not all([pguser, pgpass, pghost, pgport, pgdb]):
+    raise ValueError("Database configuration is incomplete")
 
-# Убираем +asyncpg если есть
-if '+asyncpg' in database_url:
-    database_url = database_url.replace('+asyncpg', '')
+# Формируем DSN для psycopg2
+dsn = f"dbname={pgdb} user={pguser} password={pgpass} host={pghost} port={pgport}"
 
-print(f"Using database URL: {database_url}")  # Для отладки
+# Пробуем подключиться напрямую через psycopg2
+try:
+    conn = psycopg2.connect(dsn)
+    conn.close()
+    print("Test connection successful")
+except Exception as e:
+    print(f"Test connection failed: {e}")
+    raise
+
+# Формируем URL для SQLAlchemy
+database_url = f"postgresql://{pguser}:{pgpass}@{pghost}:{pgport}/{pgdb}"
+print(f"Using database URL: {database_url}")
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
