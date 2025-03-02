@@ -14,10 +14,12 @@ class UserService:
         )
         return result.scalar_one_or_none()
 
-    async def create_user(self, telegram_id: int, username: str = None,
-                         first_name: str = None, last_name: str = None) -> User:
+    async def create_user(self, telegram_id: int, thread_id: str = None,
+                         username: str = None, first_name: str = None,
+                         last_name: str = None) -> User:
         user = User(
             telegram_id=telegram_id,
+            assistant_thread_id=thread_id,
             username=username,
             first_name=first_name,
             last_name=last_name
@@ -26,15 +28,13 @@ class UserService:
         await self.session.commit()
         return user
 
-    async def update_thread_id(self, telegram_id: int, thread_id: str) -> None:
-        user = await self.get_user(telegram_id)
-        if user:
-            user.assistant_thread_id = thread_id
-            await self.session.commit()
-
-    async def update_user_values(self, user: User, values: str) -> User:
-        user.values = values
-        self.session.add(user)
+    async def update_user_thread(self, user: User, thread_id: str) -> User:
+        user.assistant_thread_id = thread_id
         await self.session.commit()
-        await self.session.refresh(user)
-        return user 
+        return user
+
+    async def update_user_values(self, user: User, value: str) -> None:
+        if user.values is None:
+            user.values = []
+        user.values.append(value)
+        await self.session.commit() 
