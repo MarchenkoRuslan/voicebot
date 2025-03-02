@@ -34,7 +34,10 @@ class OpenAIService:
             assistant_id=self.assistant_id
         )
 
-        while True:
+        max_retries = 60  # Максимальное время ожидания - 5 минут
+        retry_count = 0
+        
+        while retry_count < max_retries:
             run_status = await self.client.beta.threads.runs.retrieve(
                 thread_id=thread_id,
                 run_id=run.id
@@ -53,7 +56,10 @@ class OpenAIService:
             elif run_status.status in ['failed', 'cancelled', 'expired']:
                 raise Exception(f"Run failed with status: {run_status.status}")
             
-            await asyncio.sleep(1)
+            retry_count += 1
+            await asyncio.sleep(5)  # Увеличиваем интервал до 5 секунд
+        
+        raise Exception("Timeout waiting for assistant response")
 
     async def get_assistant_response(self, message: str, telegram_id: int) -> str:
         """Get response using Assistant API"""
